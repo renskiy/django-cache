@@ -1,0 +1,23 @@
+language: python
+
+sudo: false
+
+python:
+    - "2.7"
+    - "3.4"
+    - "3.5"
+    - "nightly"
+
+install:
+    - pip install -r requirements.txt
+    - pip install coveralls
+
+script:
+    coverage run --source=djangocache manage.py test tests
+
+after_success:
+    coveralls
+
+branches:
+  only:
+    - master
