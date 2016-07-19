@@ -87,9 +87,8 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         if not self._should_update_cache(request, response):
             return super(CacheMiddleware, self).process_response(request, response)
 
-        response_handle.response = response
-        response_handle.request = request
-        response_handle.middleware = self
+        last_modified = 'Last-Modified' in response
+        etag = 'ETag' in response
 
         response_handle.cache_timeout = cache_timeout = self.get_cache_timeout(
             request,
@@ -97,27 +96,28 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
             **request.resolver_match.kwargs
         )
 
-        last_modified = 'Last-Modified' in response
-        etag = 'ETag' in response
-
-        with patch(cache_middleware, 'learn_cache_key', lambda *_, **__: ''):
-            # replace learn_cache_key with dummy one
-
-            with patch(self, 'cache', dummy_cache):
-                # use dummy_cache to postpone cache update till the time
-                # when all values of Vary header are ready
-
-                with patch(self, 'cache_timeout', cache_timeout):
-                    response = super(CacheMiddleware, self).process_response(request, response)
-
         if response.status_code == 304:  # Not Modified
             cache.patch_response_headers(response, cache_timeout)
+        else:
+            response_handle.response = response
+            response_handle.request = request
+            response_handle.middleware = self
+
+            with patch(cache_middleware, 'learn_cache_key', lambda *_, **__: ''):
+                # replace learn_cache_key with dummy one
+
+                with patch(self, 'cache', dummy_cache):
+                    # use dummy_cache to postpone cache update till the time
+                    # when all values of Vary header are ready
+
+                    with patch(self, 'cache_timeout', cache_timeout):
+                        response = super(CacheMiddleware, self).process_response(request, response)
 
         if not last_modified:
-            # UpdateCacheMiddleware sets Last-Modified, remove it
+            # patch_response_headers sets its own Last-Modified, remove it
             del response['Last-Modified']
         if not etag:
-            # UpdateCacheMiddleware sets ETag, remove it
+            # patch_response_headers sets its own ETag, remove it
             del response['ETag']
 
         return response
