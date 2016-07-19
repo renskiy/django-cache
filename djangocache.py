@@ -108,7 +108,8 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
 
                 with patch(self, 'cache', dummy_cache):
                     # use dummy_cache to postpone cache update till the time
-                    # when all values of Vary header are ready
+                    # when all values of Vary header are ready,
+                    # see https://code.djangoproject.com/ticket/15855
 
                     with patch(self, 'cache_timeout', cache_timeout):
                         response = super(CacheMiddleware, self).process_response(request, response)
