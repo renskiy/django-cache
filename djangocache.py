@@ -110,6 +110,9 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
                 with patch(self, 'cache_timeout', cache_timeout):
                     response = super(CacheMiddleware, self).process_response(request, response)
 
+        if response.status_code == 304:  # Not Modified
+            cache.patch_response_headers(response, cache_timeout)
+
         if not last_modified:
             # UpdateCacheMiddleware sets Last-Modified, remove it
             del response['Last-Modified']

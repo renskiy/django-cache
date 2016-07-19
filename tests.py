@@ -36,9 +36,22 @@ def cache_with_last_modified(request):
     return mocked_response()
 
 
+@cache_page(cache_timeout=24 * 60 * 60)
+# Mon, 17 Jul 2016 09:55:00 GMT
+@last_modified(lambda r: datetime.utcfromtimestamp(1468749300))
+def cache_with_last_modified2(request):
+    return mocked_response()
+
+
 @etag(lambda r: 'etag')
 @cache_page(cache_timeout=24 * 60 * 60)
 def cache_with_etag(request):
+    return mocked_response()
+
+
+@cache_page(cache_timeout=24 * 60 * 60)
+@etag(lambda r: 'etag')
+def cache_with_etag2(request):
     return mocked_response()
 
 
@@ -65,8 +78,10 @@ urlpatterns = [
     urls.url(r'no_cache', no_cache, name='no_cache'),
     urls.url(r'dynamic_key_prefix', dynamic_key_prefix, name='dynamic_key_prefix'),
     urls.url(r'dynamic_cache_timeout', dynamic_cache_timeout, name='dynamic_cache_timeout'),
-    urls.url(r'cache_with_last_modified', cache_with_last_modified, name='cache_with_last_modified'),
-    urls.url(r'cache_with_etag', cache_with_etag, name='cache_with_etag'),
+    urls.url(r'cache_with_last_modified$', cache_with_last_modified, name='cache_with_last_modified'),
+    urls.url(r'cache_with_last_modified2', cache_with_last_modified2, name='cache_with_last_modified2'),
+    urls.url(r'cache_with_etag$', cache_with_etag, name='cache_with_etag'),
+    urls.url(r'cache_with_etag2', cache_with_etag2, name='cache_with_etag2'),
 ]
 
 
@@ -366,6 +381,57 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
             self.assertEqual('max-age=86100', response['Cache-Control'])
 
+    def test_with_last_modified2(self):
+        client = test.Client()
+
+        # Mon, 17 Jul 2016 10:00:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749600):
+            response = client.get(
+                reverse('cache_with_last_modified2'),
+                HTTP_IF_MODIFIED_SINCE='Sun, 17 Jul 2016 09:55:00 GMT',
+            )
+            mocked_response.assert_not_called()
+            self.assertEqual(304, response.status_code)
+            self.assertNotIn('ETag', response)
+            self.assertIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Sun, 17 Jul 2016 09:55:00 GMT', response['Last-Modified'])
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
+
+        # Mon, 17 Jul 2016 10:00:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749600):
+            response = client.get(
+                reverse('cache_with_last_modified2'),
+                HTTP_IF_MODIFIED_SINCE='Sun, 17 Jul 2016 09:50:00 GMT',
+            )
+            mocked_response.assert_called_once()
+            self.assertNotIn('ETag', response)
+            self.assertIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Sun, 17 Jul 2016 09:55:00 GMT', response['Last-Modified'])
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
+
+        # Mon, 17 Jul 2016 10:05:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749900):
+            response = client.get(
+                reverse('cache_with_last_modified2'),
+                HTTP_IF_MODIFIED_SINCE='Sun, 17 Jul 2016 09:50:00 GMT',
+            )
+            mocked_response.assert_not_called()
+            self.assertNotIn('ETag', response)
+            self.assertIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Sun, 17 Jul 2016 09:55:00 GMT', response['Last-Modified'])
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86100', response['Cache-Control'])
+
     def test_with_etag(self):
         client = test.Client()
 
@@ -404,6 +470,57 @@ class CachePageTestCase(test.SimpleTestCase):
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('cache_with_etag'),
+                HTTP_IF_NONE_MATCH='another_etag',
+            )
+            mocked_response.assert_not_called()
+            self.assertIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('"etag"', response['ETag'])
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86100', response['Cache-Control'])
+
+    def test_with_etag2(self):
+        client = test.Client()
+
+        # Mon, 17 Jul 2016 10:00:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749600):
+            response = client.get(
+                reverse('cache_with_etag2'),
+                HTTP_IF_NONE_MATCH='etag',
+            )
+            mocked_response.assert_not_called()
+            self.assertEqual(304, response.status_code)
+            self.assertIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('"etag"', response['ETag'])
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
+
+        # Mon, 17 Jul 2016 10:00:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749600):
+            response = client.get(
+                reverse('cache_with_etag2'),
+                HTTP_IF_NONE_MATCH='another_etag',
+            )
+            mocked_response.assert_called_once()
+            self.assertIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('"etag"', response['ETag'])
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
+
+        # Mon, 17 Jul 2016 10:05:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749900):
+            response = client.get(
+                reverse('cache_with_etag2'),
                 HTTP_IF_NONE_MATCH='another_etag',
             )
             mocked_response.assert_not_called()
