@@ -2,6 +2,11 @@ language: python
 
 sudo: false
 
+env:
+  - DJANGO_VERSION=1.8.*
+  - DJANGO_VERSION=1.9.*
+  - DJANGO_VERSION=1.10rc1
+
 python:
     - "2.7"
     - "3.4"
@@ -9,8 +14,7 @@ python:
     - "nightly"
 
 install:
-    - pip install -r requirements.txt
-    - pip install coveralls
+    - pip install -q coveralls mock Django==$DJANGO_VERSION
 
 script:
     coverage run --source=djangocache manage.py test tests
