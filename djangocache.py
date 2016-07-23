@@ -58,7 +58,18 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         return self.key_prefix
 
     def process_request(self, request):
-        if request.method in ('GET', 'HEAD'):
+        cache_allowed = request.method in ('GET', 'HEAD')
+
+        if any(map(request.META.__contains__, (
+            'HTTP_IF_MODIFIED_SINCE',
+            'HTTP_IF_NONE_MATCH',
+            'HTTP_IF_UNMODIFIED_SINCE',
+            'HTTP_IF_MATCH',
+        ))):
+            request._cache_update_cache = cache_allowed
+            return None
+
+        if cache_allowed:
             response_handle.key_prefix = key_prefix = self.get_key_prefix(
                 request,
                 *request.resolver_match.args,
@@ -66,6 +77,7 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
             )
         else:
             key_prefix = None
+
         with patch(self, 'key_prefix', key_prefix):
             response = super(CacheMiddleware, self).process_request(request)
 

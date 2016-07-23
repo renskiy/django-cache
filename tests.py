@@ -370,7 +370,6 @@ class CachePageTestCase(test.SimpleTestCase):
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('cache_with_last_modified'),
-                HTTP_IF_MODIFIED_SINCE='Sun, 17 Jul 2016 09:50:00 GMT',
             )
             mocked_response.assert_not_called()
             self.assertNotIn('ETag', response)
@@ -421,7 +420,6 @@ class CachePageTestCase(test.SimpleTestCase):
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('cache_with_last_modified2'),
-                HTTP_IF_MODIFIED_SINCE='Sun, 17 Jul 2016 09:50:00 GMT',
             )
             mocked_response.assert_not_called()
             self.assertNotIn('ETag', response)
@@ -470,7 +468,6 @@ class CachePageTestCase(test.SimpleTestCase):
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('cache_with_etag'),
-                HTTP_IF_NONE_MATCH='another_etag',
             )
             mocked_response.assert_not_called()
             self.assertIn('ETag', response)
@@ -521,7 +518,6 @@ class CachePageTestCase(test.SimpleTestCase):
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('cache_with_etag2'),
-                HTTP_IF_NONE_MATCH='another_etag',
             )
             mocked_response.assert_not_called()
             self.assertIn('ETag', response)
