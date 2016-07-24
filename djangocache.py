@@ -148,14 +148,25 @@ def update_response_cache(*args, **kwargs):
     middleware = getattr(response_handle, 'middleware', None)
     request = getattr(response_handle, 'request', None)
     response = getattr(response_handle, 'response', None)
+
     if middleware and request and response:
         try:
+            # response._closable_objects may contain objects
+            # that can't be pickled,
+            # we can safely clear this list because
+            # all objects are already closed by this time
+            response._closable_objects.clear()
+
             cache_timeout = getattr(response_handle, 'cache_timeout', None)
             key_prefix = getattr(response_handle, 'key_prefix', None)
-            CacheMiddleware.update_cache(
-                middleware, request, response,
-                cache_timeout=cache_timeout,
-                key_prefix=key_prefix,
-            )
+
+            with patch(response, 'closed', False):
+                # reset 'closed' flag before saving response to cache
+
+                CacheMiddleware.update_cache(
+                    middleware, request, response,
+                    cache_timeout=cache_timeout,
+                    key_prefix=key_prefix,
+                )
         finally:
             response_handle.__dict__.clear()
