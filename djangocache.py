@@ -155,7 +155,7 @@ def update_response_cache(*args, **kwargs):
             # that can't be pickled,
             # we can safely clear this list because
             # all objects are already closed by this time
-            response._closable_objects.clear()
+            response._closable_objects = []
 
             cache_timeout = getattr(response_handle, 'cache_timeout', None)
             key_prefix = getattr(response_handle, 'key_prefix', None)
