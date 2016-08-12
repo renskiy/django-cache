@@ -25,6 +25,7 @@ setup(
         'Framework :: Django',
         'Framework :: Django :: 1.8',
         'Framework :: Django :: 1.9',
+        'Framework :: Django :: 1.10',
         'Operating System :: OS Independent',
         'Environment :: Web Environment',
         'Topic :: Internet :: WWW/HTTP',
