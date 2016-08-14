@@ -37,6 +37,21 @@ def patch(obj, attr, value, default=None):
     setattr(obj, attr, original)
 
 
+def get_cache_max_age(request):
+    if 'HTTP_CACHE_CONTROL' not in request.META:
+        return
+    request_cache_control = dict(
+        cache._to_tuple(attr)
+        for attr in
+        cache.cc_delim_re.split(request.META['HTTP_CACHE_CONTROL'])
+    )
+    if 'max-age' in request_cache_control:
+        try:
+            return int(request_cache_control['max-age'])
+        except (ValueError, TypeError):
+            pass
+
+
 class CacheMiddleware(cache_middleware.CacheMiddleware):
     """
     Despite of the original one this middleware supports
@@ -58,25 +73,24 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         return self.key_prefix
 
     def process_request(self, request):
-        cache_allowed = request.method in ('GET', 'HEAD')
+        if request.method not in ('GET', 'HEAD'):
+            return None
 
-        if any(map(request.META.__contains__, (
+        cache_max_age = get_cache_max_age(request)
+        if cache_max_age == 0 or any(map(request.META.__contains__, (
             'HTTP_IF_MODIFIED_SINCE',
             'HTTP_IF_NONE_MATCH',
             'HTTP_IF_UNMODIFIED_SINCE',
             'HTTP_IF_MATCH',
         ))):
-            request._cache_update_cache = cache_allowed
+            request._cache_update_cache = True
             return None
 
-        if cache_allowed:
-            response_handle.key_prefix = key_prefix = self.get_key_prefix(
-                request,
-                *request.resolver_match.args,
-                **request.resolver_match.kwargs
-            )
-        else:
-            key_prefix = None
+        request._cache_key_prefix = key_prefix = self.get_key_prefix(
+            request,
+            *request.resolver_match.args,
+            **request.resolver_match.kwargs
+        )
 
         with patch(self, 'key_prefix', key_prefix):
             response = super(CacheMiddleware, self).process_request(request)
@@ -102,7 +116,7 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         last_modified = 'Last-Modified' in response
         etag = 'ETag' in response
 
-        response_handle.cache_timeout = cache_timeout = self.get_cache_timeout(
+        request._cache_timeout = cache_timeout = self.get_cache_timeout(
             request,
             *request.resolver_match.args,
             **request.resolver_match.kwargs
@@ -157,8 +171,8 @@ def update_response_cache(*args, **kwargs):
             # all objects are already closed by this time
             response._closable_objects = []
 
-            cache_timeout = getattr(response_handle, 'cache_timeout', None)
-            key_prefix = getattr(response_handle, 'key_prefix', None)
+            cache_timeout = getattr(request, '_cache_timeout', None)
+            key_prefix = getattr(request, '_cache_key_prefix', None)
 
             with patch(response, 'closed', False):
                 # reset 'closed' flag before saving response to cache

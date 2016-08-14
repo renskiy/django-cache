@@ -222,6 +222,19 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=300', response['Cache-Control'])
             mocked_response.reset_mock()
 
+            response = client.get(
+                reverse('dynamic_key_prefix'),
+                HTTP_CACHE_CONTROL='max-age=0',
+            )
+            mocked_response.assert_called_once()
+            self.assertNotIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Sun, 17 Jul 2016 10:15:00 GMT', response['Expires'])
+            self.assertEqual('max-age=600', response['Cache-Control'])
+            mocked_response.reset_mock()
+
         dynamic_key_prefix.key_prefix = 'another_key_prefix'
 
         # Mon, 17 Jul 2016 10:05:00 GMT
@@ -331,6 +344,18 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertIn('Cache-Control', response)
             self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
             self.assertEqual('max-age=86100', response['Cache-Control'])
+
+            response = client.get(
+                reverse('static'),
+                HTTP_CACHE_CONTROL='max-age=0',
+            )
+            mocked_response.assert_called_once()
+            self.assertNotIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Mon, 18 Jul 2016 10:05:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
 
     def test_with_last_modified(self):
         client = test.Client()
