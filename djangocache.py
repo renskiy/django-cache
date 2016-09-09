@@ -1,15 +1,11 @@
 import contextlib
-import threading
 import time
 
-from django.core import signals
 from django.core.cache.backends.dummy import DummyCache
 from django.middleware import cache as cache_middleware
 from django.utils import http, cache, decorators
 
 __all__ = ['cache_page']
-
-response_handle = threading.local()
 
 dummy_cache = DummyCache('dummy_host', {})
 
@@ -52,6 +48,37 @@ def get_cache_max_age(request):
             pass
 
 
+class ResponseCacheUpdater(object):
+
+    def __init__(self, middleware, request, response):
+        self.middleware = middleware
+        self.request = request
+        self.response = response
+
+    def close(self):
+        middleware = self.middleware
+        request = self.request
+        response = self.response
+        self.request = self.response = self.middleware = None
+        with patch(response, '_closable_objects', []):
+            # do not save _closable_objects to cache
+
+            self.update_cache(middleware, request, response)
+
+    @staticmethod
+    def update_cache(middleware, request, response):
+        cache_timeout = getattr(request, '_cache_timeout', None)
+        key_prefix = getattr(request, '_cache_key_prefix', None)
+        with patch(cache_middleware, 'patch_response_headers', lambda *_: None):
+            # we do not want patch response again
+
+            with patch(middleware, 'key_prefix', key_prefix):
+                with patch(middleware, 'cache_timeout', cache_timeout):
+                    super(CacheMiddleware, middleware).process_response(
+                        request, response,
+                    )
+
+
 class CacheMiddleware(cache_middleware.CacheMiddleware):
     """
     Despite of the original one this middleware supports
@@ -64,7 +91,6 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
             self.get_key_prefix = self.key_prefix
         if callable(self.cache_timeout):
             self.get_cache_timeout = self.cache_timeout
-        signals.request_finished.connect(update_response_cache)
 
     def get_cache_timeout(self, request, *args, **kwargs):
         return self.cache_timeout
@@ -125,9 +151,12 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         if response.status_code == 304:  # Not Modified
             cache.patch_response_headers(response, cache_timeout)
         else:
-            response_handle.response = response
-            response_handle.request = request
-            response_handle.middleware = self
+            update_response_cache = ResponseCacheUpdater(
+                middleware=self,
+                request=request,
+                response=response,
+            )
+            response._closable_objects.append(update_response_cache)
 
             with patch(cache_middleware, 'learn_cache_key', lambda *_, **__: ''):
                 # replace learn_cache_key with dummy one
@@ -148,39 +177,3 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
             del response['ETag']
 
         return response
-
-    def update_cache(self, request, response, cache_timeout=None, key_prefix=None):
-        with patch(cache_middleware, 'patch_response_headers', lambda *_: None):
-            # we do not want patch response again
-
-            with patch(self, 'key_prefix', key_prefix):
-                with patch(self, 'cache_timeout', cache_timeout):
-                    super(CacheMiddleware, self).process_response(request, response)
-
-
-def update_response_cache(*args, **kwargs):
-    middleware = getattr(response_handle, 'middleware', None)
-    request = getattr(response_handle, 'request', None)
-    response = getattr(response_handle, 'response', None)
-
-    if middleware and request and response:
-        try:
-            # response._closable_objects may contain objects
-            # that can't be pickled,
-            # we can safely clear this list because
-            # all objects are already closed by this time
-            response._closable_objects = []
-
-            cache_timeout = getattr(request, '_cache_timeout', None)
-            key_prefix = getattr(request, '_cache_key_prefix', None)
-
-            with patch(response, 'closed', False):
-                # reset 'closed' flag before saving response to cache
-
-                CacheMiddleware.update_cache(
-                    middleware, request, response,
-                    cache_timeout=cache_timeout,
-                    key_prefix=key_prefix,
-                )
-        finally:
-            response_handle.__dict__.clear()
