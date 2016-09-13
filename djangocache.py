@@ -85,6 +85,13 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
     callable 'key_prefix' and 'cache_timeout'
     """
 
+    CONDITIONAL_HEADERS = {
+        'HTTP_IF_MODIFIED_SINCE': 'If-Modified-Since',
+        'HTTP_IF_NONE_MATCH': 'If-None-Match',
+        'HTTP_IF_UNMODIFIED_SINCE': 'If-Unmodified-Since',
+        'HTTP_IF_MATCH': 'If-Match',
+    }
+
     def __init__(self, *args, **kwargs):
         super(CacheMiddleware, self).__init__(*args, **kwargs)
         if callable(self.key_prefix):
@@ -103,12 +110,7 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
             return None
 
         cache_max_age = get_cache_max_age(request)
-        if cache_max_age == 0 or any(map(request.META.__contains__, (
-            'HTTP_IF_MODIFIED_SINCE',
-            'HTTP_IF_NONE_MATCH',
-            'HTTP_IF_UNMODIFIED_SINCE',
-            'HTTP_IF_MATCH',
-        ))):
+        if cache_max_age == 0:
             request._cache_update_cache = True
             return None
 
@@ -147,6 +149,14 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
             *request.resolver_match.args,
             **request.resolver_match.kwargs
         )
+
+        conditional_vary_headers = [
+            http_header
+            for wsgi_header, http_header in self.CONDITIONAL_HEADERS.items()
+            if wsgi_header in request.META
+        ]
+        if conditional_vary_headers:
+            cache.patch_vary_headers(response, conditional_vary_headers)
 
         if response.status_code == 304:  # Not Modified
             cache.patch_response_headers(response, cache_timeout)
