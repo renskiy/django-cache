@@ -9,6 +9,8 @@ __all__ = ['cache_page']
 
 dummy_cache = DummyCache('dummy_host', {})
 
+rfc7232_headers = ['ETag', 'Vary', 'Cache-Control', 'Expires', 'Content-Location', 'Date']
+
 
 def cache_page(**kwargs):
     """
@@ -48,6 +50,27 @@ def get_cache_max_age(request):
             pass
 
 
+def get_conditional_response(request, response=None):
+    if not (response and hasattr(cache, 'get_conditional_response')):
+        return response
+    additional_headers = {
+        header: response[header]
+        for header in rfc7232_headers
+        if header in response
+    }
+    last_modified = response.get('Last-Modified')
+    response = cache.get_conditional_response(
+        request,
+        last_modified=http.parse_http_date_safe(last_modified),
+        response=response,
+    )
+    for header, value in additional_headers.items():
+        response[header] = value
+    if last_modified:
+        response['Last-Modified'] = last_modified
+    return response
+
+
 class ResponseCacheUpdater(object):
 
     def __init__(self, middleware, request, response):
@@ -85,10 +108,8 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
     callable 'key_prefix' and 'cache_timeout'
     """
 
-    CONDITIONAL_HEADERS = {
-        'HTTP_IF_MODIFIED_SINCE': 'If-Modified-Since',
+    CONDITIONAL_VARY_HEADERS = {
         'HTTP_IF_NONE_MATCH': 'If-None-Match',
-        'HTTP_IF_UNMODIFIED_SINCE': 'If-Unmodified-Since',
         'HTTP_IF_MATCH': 'If-Match',
     }
 
@@ -123,6 +144,9 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         with patch(self, 'key_prefix', key_prefix):
             response = super(CacheMiddleware, self).process_request(request)
 
+        # check if we should return "304 Not Modified"
+        response = response and get_conditional_response(request, response)
+
         if response and 'Expires' in response:
             # Replace 'max-age' value of 'Cache-Control' header by one
             # calculated from the 'Expires' header.
@@ -152,7 +176,7 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
 
         conditional_vary_headers = [
             http_header
-            for wsgi_header, http_header in self.CONDITIONAL_HEADERS.items()
+            for wsgi_header, http_header in self.CONDITIONAL_VARY_HEADERS.items()
             if wsgi_header in request.META
         ]
         if conditional_vary_headers:

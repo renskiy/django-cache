@@ -1,7 +1,9 @@
 import time
+import unittest
 
 from datetime import datetime
 
+import django
 import mock
 
 from django import test, http
@@ -345,7 +347,7 @@ class CachePageTestCase(test.SimpleTestCase):
     def test_with_last_modified(self):
         client = test.Client()
 
-        # not modified conditional request -- bypass cache
+        # conditional request without cache -- not modified
         # Mon, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
@@ -354,81 +356,86 @@ class CachePageTestCase(test.SimpleTestCase):
             )
             mocked_response.assert_not_called()
             self.assertEqual(304, response.status_code)
-            self.assertIn('Vary', response)
             self.assertNotIn('ETag', response)
             self.assertIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
-            self.assertEqual('If-Modified-Since', response['Vary'])
             self.assertEqual('Sun, 17 Jul 2016 09:55:00 GMT', response['Last-Modified'])
             self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
             self.assertEqual('max-age=86400', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # modified conditional request -- generate cache
+        # Request once -- generate cache
+        # Mon, 17 Jul 2016 10:00:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749600):
+            response = client.get(
+                reverse('cache_with_last_modified'),
+            )
+            mocked_response.assert_called_once()
+            self.assertEqual(200, response.status_code)
+            self.assertNotIn('ETag', response)
+            self.assertIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Sun, 17 Jul 2016 09:55:00 GMT', response['Last-Modified'])
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
+
+        # expired request with precondition -- hit cache
         # Mon, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_last_modified'),
                 HTTP_IF_MODIFIED_SINCE='Sun, 17 Jul 2016 09:50:00 GMT',
             )
-            mocked_response.assert_called_once()
+            mocked_response.assert_not_called()
             self.assertEqual(200, response.status_code)
-            self.assertIn('Vary', response)
             self.assertNotIn('ETag', response)
             self.assertIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
-            self.assertEqual('If-Modified-Since', response['Vary'])
             self.assertEqual('Sun, 17 Jul 2016 09:55:00 GMT', response['Last-Modified'])
             self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
             self.assertEqual('max-age=86400', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # same modified conditional request 5 minutes later -- cache hit
-        # Mon, 17 Jul 2016 10:05:00 GMT
-        with mock.patch.object(time, 'time', return_value=1468749900):
-            response = client.get(
-                reverse('cache_with_last_modified'),
-                HTTP_IF_MODIFIED_SINCE='Sun, 17 Jul 2016 09:50:00 GMT',
-            )
-            mocked_response.assert_not_called()
-            self.assertEqual(200, response.status_code)
-            self.assertIn('Vary', response)
-            self.assertNotIn('ETag', response)
-            self.assertIn('Last-Modified', response)
-            self.assertIn('Expires', response)
-            self.assertIn('Cache-Control', response)
-            self.assertEqual('If-Modified-Since', response['Vary'])
-            self.assertEqual('Sun, 17 Jul 2016 09:55:00 GMT', response['Last-Modified'])
-            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
-            self.assertEqual('max-age=86100', response['Cache-Control'])
-            mocked_response.reset_mock()
+    @unittest.skipIf(django.VERSION < (1, 9), 'this test works only with Django>=1.9')
+    def test_with_last_modified_not_modified(self):
+        client = test.Client()
 
-        # another modified conditional request -- cache miss
-        # Mon, 17 Jul 2016 10:05:00 GMT
-        with mock.patch.object(time, 'time', return_value=1468749900):
+        # Request once -- generate cache
+        # Mon, 17 Jul 2016 10:00:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_last_modified'),
-                HTTP_IF_MODIFIED_SINCE='Sun, 17 Jul 2016 09:51:00 GMT',
             )
             mocked_response.assert_called_once()
             self.assertEqual(200, response.status_code)
-            self.assertIn('Vary', response)
+            mocked_response.reset_mock()
+
+        # repeat request with precondition -- hit cache, not modified
+        # Mon, 17 Jul 2016 10:00:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749600):
+            response = client.get(
+                reverse('cache_with_last_modified'),
+                HTTP_IF_MODIFIED_SINCE='Sun, 17 Jul 2016 09:55:00 GMT',
+            )
+            mocked_response.assert_not_called()
+            self.assertEqual(304, response.status_code)
             self.assertNotIn('ETag', response)
             self.assertIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
-            self.assertEqual('If-Modified-Since', response['Vary'])
             self.assertEqual('Sun, 17 Jul 2016 09:55:00 GMT', response['Last-Modified'])
-            self.assertEqual('Mon, 18 Jul 2016 10:05:00 GMT', response['Expires'])
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
             self.assertEqual('max-age=86400', response['Cache-Control'])
             mocked_response.reset_mock()
 
     def test_with_etag(self):
         client = test.Client()
 
-        # not modified conditional request -- bypass cache
+        # conditional request without cache -- not modified
         # Mon, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
@@ -448,7 +455,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=86400', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # modified conditional request -- generate cache
+        # Request once -- generate cache
         # Mon, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
@@ -468,7 +475,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=86400', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # same modified conditional request 5 minutes later -- cache hit
+        # repeat request with precondition -- hit cache
         # Mon, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
@@ -488,9 +495,9 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=86100', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # another modified conditional request -- cache miss
-        # Mon, 17 Jul 2016 10:05:00 GMT
-        with mock.patch.object(time, 'time', return_value=1468749900):
+        # expired request with precondition -- miss cache
+        # Mon, 17 Jul 2016 10:00:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_etag'),
                 HTTP_IF_NONE_MATCH='yet_another_etag',
@@ -504,7 +511,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertIn('Cache-Control', response)
             self.assertEqual('If-None-Match', response['Vary'])
             self.assertEqual('"etag"', response['ETag'])
-            self.assertEqual('Mon, 18 Jul 2016 10:05:00 GMT', response['Expires'])
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
             self.assertEqual('max-age=86400', response['Cache-Control'])
             mocked_response.reset_mock()
 
