@@ -32,7 +32,7 @@ def no_cache(request):
 
 
 @cache_page(cache_timeout=24 * 60 * 60)
-# Mon, 17 Jul 2016 09:55:00 GMT
+# Sun, 17 Jul 2016 09:55:00 GMT
 @last_modified(lambda r: datetime.utcfromtimestamp(1468749300))
 def cache_with_last_modified(request):
     return mocked_response()
@@ -85,7 +85,7 @@ class CachePageTestCase(test.SimpleTestCase):
     def test_default(self):
         client = test.Client()
 
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(reverse('default'))
             mocked_response.assert_called_once()
@@ -97,7 +97,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=600', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(reverse('default'))
             mocked_response.assert_not_called()
@@ -111,7 +111,7 @@ class CachePageTestCase(test.SimpleTestCase):
     def test_method_post(self):
         client = test.Client()
 
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.post(reverse('default'))
             mocked_response.assert_called_once()
@@ -121,7 +121,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertNotIn('Cache-Control', response)
             mocked_response.reset_mock()
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.post(reverse('default'))
             mocked_response.assert_called_once()
@@ -133,7 +133,7 @@ class CachePageTestCase(test.SimpleTestCase):
     def test_method_head(self):
         client = test.Client()
 
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.head(reverse('default'))
             mocked_response.assert_called_once()
@@ -145,7 +145,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=600', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.head(reverse('default'))
             mocked_response.assert_not_called()
@@ -159,7 +159,7 @@ class CachePageTestCase(test.SimpleTestCase):
     def test_dynamic_cache_timeout(self):
         client = test.Client()
 
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(reverse('dynamic_cache_timeout'))
             mocked_response.assert_called_once()
@@ -171,7 +171,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=86400', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(reverse('dynamic_cache_timeout'))
             mocked_response.assert_not_called()
@@ -185,7 +185,7 @@ class CachePageTestCase(test.SimpleTestCase):
     def test_dynamic_key_prefix(self):
         client = test.Client()
 
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(reverse('dynamic_key_prefix'))
             mocked_response.assert_called_once()
@@ -197,7 +197,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=600', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(reverse('dynamic_key_prefix'))
             mocked_response.assert_not_called()
@@ -224,7 +224,7 @@ class CachePageTestCase(test.SimpleTestCase):
 
         dynamic_key_prefix.key_prefix = 'another_key_prefix'
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(reverse('dynamic_key_prefix'))
             mocked_response.assert_called_once()
@@ -240,7 +240,7 @@ class CachePageTestCase(test.SimpleTestCase):
     def test_with_vary_changed_by_middleware(self):
         client = test.Client()
 
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('default'),
@@ -257,7 +257,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=600', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('default'),
@@ -274,7 +274,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=300', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('default'),
@@ -291,7 +291,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=600', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('default'),
@@ -309,7 +309,7 @@ class CachePageTestCase(test.SimpleTestCase):
     def test_static(self):
         client = test.Client()
 
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(reverse('static'))
             mocked_response.assert_called_once()
@@ -321,7 +321,7 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertEqual('max-age=86400', response['Cache-Control'])
             mocked_response.reset_mock()
 
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(reverse('static'))
             mocked_response.assert_not_called()
@@ -348,7 +348,7 @@ class CachePageTestCase(test.SimpleTestCase):
         client = test.Client()
 
         # conditional request without cache -- not modified
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_last_modified'),
@@ -366,7 +366,7 @@ class CachePageTestCase(test.SimpleTestCase):
             mocked_response.reset_mock()
 
         # Request once -- generate cache
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_last_modified'),
@@ -383,7 +383,7 @@ class CachePageTestCase(test.SimpleTestCase):
             mocked_response.reset_mock()
 
         # expired request with precondition -- hit cache
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_last_modified'),
@@ -405,7 +405,7 @@ class CachePageTestCase(test.SimpleTestCase):
         client = test.Client()
 
         # Request once -- generate cache
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_last_modified'),
@@ -415,7 +415,7 @@ class CachePageTestCase(test.SimpleTestCase):
             mocked_response.reset_mock()
 
         # repeat request with precondition -- hit cache, not modified
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_last_modified'),
@@ -436,7 +436,7 @@ class CachePageTestCase(test.SimpleTestCase):
         client = test.Client()
 
         # conditional request without cache -- not modified
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_etag'),
@@ -456,7 +456,7 @@ class CachePageTestCase(test.SimpleTestCase):
             mocked_response.reset_mock()
 
         # Request once -- generate cache
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_etag'),
@@ -476,7 +476,7 @@ class CachePageTestCase(test.SimpleTestCase):
             mocked_response.reset_mock()
 
         # repeat request with precondition -- hit cache
-        # Mon, 17 Jul 2016 10:05:00 GMT
+        # Sun, 17 Jul 2016 10:05:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('cache_with_etag'),
@@ -496,7 +496,7 @@ class CachePageTestCase(test.SimpleTestCase):
             mocked_response.reset_mock()
 
         # expired request with precondition -- miss cache
-        # Mon, 17 Jul 2016 10:00:00 GMT
+        # Sun, 17 Jul 2016 10:00:00 GMT
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_etag'),
