@@ -9,7 +9,8 @@ __all__ = ['cache_page']
 
 dummy_cache = DummyCache('dummy_host', {})
 
-rfc7232_headers = ['ETag', 'Vary', 'Cache-Control', 'Expires', 'Content-Location', 'Date']
+# https://tools.ietf.org/html/rfc7232#section-4.1
+rfc7232_headers = ['ETag', 'Vary', 'Cache-Control', 'Expires', 'Content-Location']
 
 
 def cache_page(**kwargs):
@@ -53,22 +54,24 @@ def get_cache_max_age(request):
 def get_conditional_response(request, response=None):
     if not (response and hasattr(cache, 'get_conditional_response')):
         return response
-    additional_headers = {
-        header: response[header]
-        for header in rfc7232_headers
-        if header in response
-    }
     last_modified = response.get('Last-Modified')
-    response = cache.get_conditional_response(
+    conditional_response = cache.get_conditional_response(
         request,
         last_modified=http.parse_http_date_safe(last_modified),
         response=response,
     )
-    for header, value in additional_headers.items():
-        response[header] = value
+    if conditional_response is response:
+        return response
+    headers = {
+        header: response[header]
+        for header in rfc7232_headers
+        if header in response
+    }
+    for header, value in headers.items():
+        conditional_response[header] = value
     if last_modified:
-        response['Last-Modified'] = last_modified
-    return response
+        conditional_response['Last-Modified'] = last_modified
+    return conditional_response
 
 
 class ResponseCacheUpdater(object):
