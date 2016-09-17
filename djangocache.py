@@ -36,17 +36,17 @@ def patch(obj, attr, value, default=None):
     setattr(obj, attr, original)
 
 
-def get_cache_max_age(request):
-    if 'HTTP_CACHE_CONTROL' not in request.META:
+def get_cache_max_age(cache_control):
+    if not cache_control:
         return
-    request_cache_control = dict(
+    cache_control_kwargs = dict(
         cache._to_tuple(attr)
         for attr in
-        cache.cc_delim_re.split(request.META['HTTP_CACHE_CONTROL'])
+        cache.cc_delim_re.split(cache_control)
     )
-    if 'max-age' in request_cache_control:
+    if 'max-age' in cache_control_kwargs:
         try:
-            return int(request_cache_control['max-age'])
+            return int(cache_control_kwargs['max-age'])
         except (ValueError, TypeError):
             pass
 
@@ -133,7 +133,7 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         if request.method not in ('GET', 'HEAD'):
             return None
 
-        cache_max_age = get_cache_max_age(request)
+        cache_max_age = get_cache_max_age(request.META.get('HTTP_CACHE_CONTROL'))
         if cache_max_age == 0:
             request._cache_update_cache = True
             return None
@@ -150,17 +150,13 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         # check if we should return "304 Not Modified"
         response = response and get_conditional_response(request, response)
 
+        # setting cache age
         if response and 'Expires' in response:
-            # Replace 'max-age' value of 'Cache-Control' header by one
-            # calculated from the 'Expires' header.
-            # This is necessary because of FetchFromCacheMiddleware
-            # gets 'Cache-Control' header value from the cache
-            # where 'max-age' corresponds to the moment of original
-            # response generation and thus should have another value
-            # for the current time.
-            expires = http.parse_http_date(response['Expires'])
-            timeout = expires - int(time.time())
-            cache.patch_cache_control(response, max_age=timeout)
+            max_age = get_cache_max_age(response.get('Cache-Control'))
+            if max_age:
+                expires = http.parse_http_date(response['Expires'])
+                timeout = expires - int(time.time())
+                response['Age'] = max_age - timeout
 
         return response
 
@@ -212,5 +208,9 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         if not etag:
             # patch_response_headers sets its own ETag, remove it
             del response['ETag']
+
+        # new cache generated (Age: 0)
+        if 'Age' not in response:
+            response['Age'] = '0'
 
         return response

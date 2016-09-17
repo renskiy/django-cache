@@ -93,8 +93,10 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertNotIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
             self.assertEqual('Sun, 17 Jul 2016 10:10:00 GMT', response['Expires'])
             self.assertEqual('max-age=600', response['Cache-Control'])
+            self.assertEqual('0', response['Age'])
             mocked_response.reset_mock()
 
         # Sun, 17 Jul 2016 10:05:00 GMT
@@ -105,8 +107,10 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertNotIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
             self.assertEqual('Sun, 17 Jul 2016 10:10:00 GMT', response['Expires'])
-            self.assertEqual('max-age=300', response['Cache-Control'])
+            self.assertEqual('max-age=600', response['Cache-Control'])
+            self.assertEqual('300', response['Age'])
 
     def test_method_post(self):
         client = test.Client()
@@ -153,8 +157,10 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertNotIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
             self.assertEqual('Sun, 17 Jul 2016 10:10:00 GMT', response['Expires'])
-            self.assertEqual('max-age=300', response['Cache-Control'])
+            self.assertEqual('max-age=600', response['Cache-Control'])
+            self.assertEqual('300', response['Age'])
 
     def test_dynamic_cache_timeout(self):
         client = test.Client()
@@ -179,8 +185,10 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertNotIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
             self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
-            self.assertEqual('max-age=86100', response['Cache-Control'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            self.assertEqual('300', response['Age'])
 
     def test_dynamic_key_prefix(self):
         client = test.Client()
@@ -205,8 +213,10 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertNotIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
             self.assertEqual('Sun, 17 Jul 2016 10:10:00 GMT', response['Expires'])
-            self.assertEqual('max-age=300', response['Cache-Control'])
+            self.assertEqual('max-age=600', response['Cache-Control'])
+            self.assertEqual('300', response['Age'])
             mocked_response.reset_mock()
 
             response = client.get(
@@ -269,9 +279,11 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertIn('Vary', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
             self.assertEqual('Header', response['Vary'])
             self.assertEqual('Sun, 17 Jul 2016 10:10:00 GMT', response['Expires'])
-            self.assertEqual('max-age=300', response['Cache-Control'])
+            self.assertEqual('max-age=600', response['Cache-Control'])
+            self.assertEqual('300', response['Age'])
             mocked_response.reset_mock()
 
         # Sun, 17 Jul 2016 10:05:00 GMT
@@ -329,8 +341,10 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertNotIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
             self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
-            self.assertEqual('max-age=86100', response['Cache-Control'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            self.assertEqual('300', response['Age'])
 
             response = client.get(
                 reverse('static'),
@@ -489,10 +503,12 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertNotIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
             self.assertEqual('If-None-Match', response['Vary'])
             self.assertEqual('"etag"', response['ETag'])
             self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
-            self.assertEqual('max-age=86100', response['Cache-Control'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            self.assertEqual('300', response['Age'])
             mocked_response.reset_mock()
 
         # expired request with precondition -- miss cache
