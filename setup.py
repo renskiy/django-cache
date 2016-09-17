@@ -5,7 +5,7 @@ with open('README.rst') as description:
 
 setup(
     name='django-cache',
-    version='0.2.2',
+    version='0.2.3',
     author='Rinat Khabibiev',
     author_email='srenskiy@gmail.com',
     py_modules=['djangocache'],
