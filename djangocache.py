@@ -209,8 +209,4 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
             # patch_response_headers sets its own ETag, remove it
             del response['ETag']
 
-        # new cache generated (Age: 0)
-        if 'Age' not in response:
-            response['Age'] = '0'
-
         return response

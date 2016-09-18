@@ -93,10 +93,8 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertNotIn('Last-Modified', response)
             self.assertIn('Expires', response)
             self.assertIn('Cache-Control', response)
-            self.assertIn('Age', response)
             self.assertEqual('Sun, 17 Jul 2016 10:10:00 GMT', response['Expires'])
             self.assertEqual('max-age=600', response['Cache-Control'])
-            self.assertEqual('0', response['Age'])
             mocked_response.reset_mock()
 
         # Sun, 17 Jul 2016 10:05:00 GMT
