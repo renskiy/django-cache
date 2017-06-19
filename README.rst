@@ -14,7 +14,7 @@ Enhanced :code:`cache_page` decorator for `Django`_ views.
 Compatibility
 -------------
 
-Django-cache properly works with Django 1.8, 1.9 and 1.10 on Python 2.7, 3.4, 3.5 and 3.6.
+Django-cache properly works with Django 1.8, 1.9, 1.10 and 1.11 on Python 2.7, 3.4, 3.5 and 3.6.
 
 Advantages
 ----------
