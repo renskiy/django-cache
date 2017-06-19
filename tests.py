@@ -452,7 +452,7 @@ class CachePageTestCase(test.SimpleTestCase):
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_etag'),
-                HTTP_IF_NONE_MATCH='etag',
+                HTTP_IF_NONE_MATCH='"etag"',
             )
             mocked_response.assert_not_called()
             self.assertEqual(304, response.status_code)
@@ -472,7 +472,7 @@ class CachePageTestCase(test.SimpleTestCase):
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_etag'),
-                HTTP_IF_NONE_MATCH='another_etag',
+                HTTP_IF_NONE_MATCH='"another_etag"',
             )
             mocked_response.assert_called_once()
             self.assertEqual(200, response.status_code)
@@ -492,7 +492,7 @@ class CachePageTestCase(test.SimpleTestCase):
         with mock.patch.object(time, 'time', return_value=1468749900):
             response = client.get(
                 reverse('cache_with_etag'),
-                HTTP_IF_NONE_MATCH='another_etag',
+                HTTP_IF_NONE_MATCH='"another_etag"',
             )
             mocked_response.assert_not_called()
             self.assertEqual(200, response.status_code)
@@ -514,7 +514,7 @@ class CachePageTestCase(test.SimpleTestCase):
         with mock.patch.object(time, 'time', return_value=1468749600):
             response = client.get(
                 reverse('cache_with_etag'),
-                HTTP_IF_NONE_MATCH='yet_another_etag',
+                HTTP_IF_NONE_MATCH='"yet_another_etag"',
             )
             mocked_response.assert_called_once()
             self.assertEqual(200, response.status_code)
