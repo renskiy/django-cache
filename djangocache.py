@@ -1,6 +1,7 @@
 import contextlib
 import time
 
+from django.conf import settings
 from django.core.cache.backends.dummy import DummyCache
 from django.middleware import cache as cache_middleware
 from django.utils import http, cache, decorators
@@ -10,20 +11,21 @@ __all__ = ['cache_page']
 dummy_cache = DummyCache('dummy_host', {})
 
 # https://tools.ietf.org/html/rfc7232#section-4.1
-rfc7232_headers = ['ETag', 'Vary', 'Cache-Control', 'Expires', 'Content-Location']
+rfc7232_headers = ['ETag', 'Vary', 'Cache-Control', 'Expires', 'Content-Location', 'Date', 'Last-Modified']
 
 
 def cache_page(**kwargs):
     """
     This decorator is similar to `django.views.decorators.cache.cache_page`
     """
-    cache_timeout = kwargs.get('cache_timeout')
-    cache_alias = kwargs.get('cache_alias')
-    key_prefix = kwargs.get('key_prefix')
+    cache_timeout = kwargs.pop('cache_timeout', None)
+    key_prefix = kwargs.pop('key_prefix', None)
+    cache_min_age = kwargs.pop('cache_min_age', None)
     decorator = decorators.decorator_from_middleware_with_args(CacheMiddleware)(
         cache_timeout=cache_timeout,
-        cache_alias=cache_alias,
         key_prefix=key_prefix,
+        cache_min_age=cache_min_age,
+        **kwargs
     )
     return decorator
 
@@ -53,6 +55,7 @@ def get_cache_max_age(cache_control):
 
 def get_conditional_response(request, response=None):
     if not (response and hasattr(cache, 'get_conditional_response')):
+        # Django 1.8 does not have such method, can't do anything
         return response
     last_modified = response.get('Last-Modified')
     conditional_response = cache.get_conditional_response(
@@ -69,8 +72,6 @@ def get_conditional_response(request, response=None):
     }
     for header, value in headers.items():
         conditional_response[header] = value
-    if last_modified:
-        conditional_response['Last-Modified'] = last_modified
     return conditional_response
 
 
@@ -116,7 +117,8 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         'HTTP_IF_MATCH': 'If-Match',
     }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cache_min_age=None, *args, **kwargs):
+        self.cache_min_age = cache_min_age
         super(CacheMiddleware, self).__init__(*args, **kwargs)
         if callable(self.key_prefix):
             self.get_key_prefix = self.key_prefix
@@ -130,14 +132,6 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
         return self.key_prefix
 
     def process_request(self, request):
-        if request.method not in ('GET', 'HEAD'):
-            return None
-
-        cache_max_age = get_cache_max_age(request.META.get('HTTP_CACHE_CONTROL'))
-        if cache_max_age == 0:
-            request._cache_update_cache = True
-            return None
-
         request._cache_key_prefix = key_prefix = self.get_key_prefix(
             request,
             *request.resolver_match.args,
@@ -156,7 +150,20 @@ class CacheMiddleware(cache_middleware.CacheMiddleware):
             if max_age:
                 expires = http.parse_http_date(response['Expires'])
                 timeout = expires - int(time.time())
-                response['Age'] = max_age - timeout
+                response['Age'] = age = max_age - timeout
+
+                # check cache age limit provided by client
+                age_limit = get_cache_max_age(request.META.get('HTTP_CACHE_CONTROL'))
+                if age_limit is None and request.META.get('HTTP_PRAGMA') == 'no-cache':
+                    age_limit = 0
+                if age_limit is not None:
+                    min_age = self.cache_min_age
+                    if min_age is None:
+                        min_age = getattr(settings, 'DJANGOCACHE_MIN_AGE', 0)
+                    age_limit = max(min_age, age_limit)
+                    if age >= age_limit:
+                        request._cache_update_cache = True
+                        return None
 
         return response
 

@@ -12,13 +12,18 @@ from django.core.cache import caches
 from django.core.urlresolvers import reverse
 from django.views.decorators.http import last_modified, etag
 
-from djangocache import cache_page
+from djangocache import cache_page, get_cache_max_age
 
 mocked_response = mock.Mock(side_effect=lambda: http.HttpResponse())
 
 
 @cache_page(cache_timeout=24 * 60 * 60)
 def static(request):
+    return mocked_response()
+
+
+@cache_page(cache_timeout=24 * 60 * 60, cache_min_age=600)
+def static2(request):
     return mocked_response()
 
 
@@ -62,6 +67,7 @@ class UpdateVaryMiddleware(object):
         return response
 
 urlpatterns = [
+    urls.url(r'static2', static2, name='static2'),
     urls.url(r'static', static, name='static'),
     urls.url(r'default', default, name='default'),
     urls.url(r'no_cache', no_cache, name='no_cache'),
@@ -355,6 +361,128 @@ class CachePageTestCase(test.SimpleTestCase):
             self.assertIn('Cache-Control', response)
             self.assertEqual('Mon, 18 Jul 2016 10:05:00 GMT', response['Expires'])
             self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
+
+        # Sun, 17 Jul 2016 10:10:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468750200):
+            response = client.get(
+                reverse('static'),
+                HTTP_PRAGMA='no-cache',
+            )
+            mocked_response.assert_called_once()
+            self.assertNotIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Mon, 18 Jul 2016 10:10:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
+
+        # Sun, 17 Jul 2016 10:15:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468750500):
+            response = client.get(
+                reverse('static'),
+                HTTP_CACHE_CONTROL='max-age=600',
+                HTTP_PRAGMA='no-cache',
+            )
+            mocked_response.assert_not_called()
+            self.assertNotIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
+            self.assertEqual('Mon, 18 Jul 2016 10:10:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            self.assertEqual('300', response['Age'])
+            mocked_response.reset_mock()
+
+            with test.utils.override_settings(DJANGOCACHE_MIN_AGE=600):
+                response = client.get(
+                    reverse('static'),
+                    HTTP_CACHE_CONTROL='max-age=200',
+                )
+                mocked_response.assert_not_called()
+                self.assertNotIn('ETag', response)
+                self.assertNotIn('Last-Modified', response)
+                self.assertIn('Expires', response)
+                self.assertIn('Cache-Control', response)
+                self.assertIn('Age', response)
+                self.assertEqual('Mon, 18 Jul 2016 10:10:00 GMT', response['Expires'])
+                self.assertEqual('max-age=86400', response['Cache-Control'])
+                self.assertEqual('300', response['Age'])
+                mocked_response.reset_mock()
+
+            response = client.get(
+                reverse('static'),
+                HTTP_CACHE_CONTROL='max-age=200',
+            )
+            mocked_response.assert_called_once()
+            self.assertNotIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Mon, 18 Jul 2016 10:15:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
+
+            response = client.get(
+                reverse('static'),
+                HTTP_CACHE_CONTROL='max-age=0',
+            )
+            mocked_response.assert_called_once()
+            self.assertNotIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Mon, 18 Jul 2016 10:15:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+
+    def test_static2(self):
+        client = test.Client()
+
+        # Sun, 17 Jul 2016 10:00:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749600):
+            response = client.get(reverse('static2'))
+            mocked_response.assert_called_once()
+            self.assertNotIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
+
+        # Sun, 17 Jul 2016 10:05:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468749900):
+            response = client.get(
+                reverse('static2'),
+                HTTP_CACHE_CONTROL='max-age=300',
+            )
+            mocked_response.assert_not_called()
+            self.assertNotIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertIn('Age', response)
+            self.assertEqual('Mon, 18 Jul 2016 10:00:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            self.assertEqual('300', response['Age'])
+            mocked_response.reset_mock()
+
+        # Sun, 17 Jul 2016 10:10:00 GMT
+        with mock.patch.object(time, 'time', return_value=1468750200):
+            response = client.get(
+                reverse('static'),
+                HTTP_CACHE_CONTROL='max-age=300',
+            )
+            mocked_response.assert_called_once()
+            self.assertNotIn('ETag', response)
+            self.assertNotIn('Last-Modified', response)
+            self.assertIn('Expires', response)
+            self.assertIn('Cache-Control', response)
+            self.assertEqual('Mon, 18 Jul 2016 10:10:00 GMT', response['Expires'])
+            self.assertEqual('max-age=86400', response['Cache-Control'])
+            mocked_response.reset_mock()
 
     def test_with_last_modified(self):
         client = test.Client()
@@ -545,3 +673,7 @@ class CachePageTestCase(test.SimpleTestCase):
         self.assertNotIn('Last-Modified', response)
         self.assertNotIn('Expires', response)
         self.assertNotIn('Cache-Control', response)
+
+    def test_get_cache_max_age_returns_none_on_wrong_or_empty_result(self):
+        self.assertIsNone(get_cache_max_age('max-age=a'))
+        self.assertIsNone(get_cache_max_age('max-age='))
